@@ -4,36 +4,7 @@ Local executor system for the zo-swarm-orchestrator. Manages bridge scripts, hea
 
 ## Architecture
 
-```
-┌─────────────────────────────────┐
-│     zo-swarm-orchestrator       │
-│  (DAG execution, token mgmt)    │
-│                                 │
-│  callAgent() routing:           │
-│    1. Local executor (bridge)   │
-│    2. Anthropic API             │
-│    3. Zo API                    │
-└──────────┬──────────────────────┘
-           │ reads executor-registry.json
-           │ spawns: bash <bridge> "<prompt>"
-           ▼
-┌─────────────────────────────────┐
-│     zo-swarm-executors          │
-│                                 │
-│  registry/                      │
-│    executor-registry.json       │
-│                                 │
-│  bridges/                       │
-│    claude-code-bridge.sh ──────►│ Claude Code CLI
-│    hermes-bridge.sh ───────────►│ Hermes Agent CLI
-│    template-bridge.sh           │ (scaffold)
-│                                 │
-│  scripts/                       │
-│    doctor.ts    (health checks) │
-│    test-harness.ts (int. tests) │
-│    register.ts  (CRUD registry) │
-└─────────────────────────────────┘
-```
+![Architecture diagram showing zo-swarm-orchestrator routing to zo-swarm-executors via bridge scripts](docs/images/architecture.png)
 
 ## Setup
 
