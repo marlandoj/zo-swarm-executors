@@ -31,8 +31,8 @@ docs/             — Protocol spec and reference identity files
 
 ## Known Limitations
 
-- Hermes bridge output parsing relies on specific banner format (`╭─ ⚕ Hermes` ... `╰──`). If Hermes CLI changes its output format, the sed pipeline will break.
-- Claude Code bridge requires `settings.json` with `defaultMode: bypassPermissions` since `--dangerously-skip-permissions` is blocked when running as root.
+- Hermes bridge output parsing relies on specific banner format (`╭─ ⚕ Hermes` ... `╰──`). If Hermes CLI changes its output format, the sed pipeline will produce empty output — but a fallback now retries with raw capture and emits a `BRIDGE_WARN` on stderr. Hermes bridge now supports `$2` workdir and `HERMES_TIMEOUT` (default: 300s).
+- Claude Code bridge discovers MCP tool names dynamically by querying each server's `tools/list` endpoint at startup. Results are cached for 1 hour at `/tmp/claude-bridge-mcp-tools-cache.txt`. Delete the cache to force re-discovery. Only HTTP/Streamable-HTTP MCP servers with a `url` in `.mcp.json` are queried (stdio servers are skipped).
 - No Windows support — bridges are bash scripts.
 
 ## Integration Notes

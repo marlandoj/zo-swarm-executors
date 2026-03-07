@@ -1,20 +1,25 @@
 ---
 name: zo-swarm-executors
-description: Local executor system for zo-swarm-orchestrator — manages bridge scripts, health checks, and registry for Claude Code and Hermes agents
-version: 1.0.0
+description: Local executor system for zo-swarm-orchestrator — manages bridge scripts, health checks, and registry for Claude Code, Hermes, Gemini, and Codex agents running on the local machine.
+version: 2.0.0
 author: marlandoj
 tags:
   - swarm
   - orchestration
   - local-executors
   - bridge-scripts
+  - claude-code
+  - hermes
+  - gemini
+  - codex
 related_skills:
   - zo-swarm-orchestrator
+  - zo-memory-system
 ---
 
 # zo-swarm-executors
 
-Local executor system for the [zo-swarm-orchestrator](../zo-swarm-orchestrator/). Manages bridge scripts, executor registry, and health checks for AI agents that run directly on the machine (not via remote API).
+Local executor system for the [zo-swarm-orchestrator](../zo-swarm-orchestrator/). Manages bridge scripts, executor registry, and health checks for AI agents that run directly on the machine.
 
 ## Quick Start
 
@@ -36,10 +41,12 @@ bun scripts/register.ts validate
 
 ## Available Executors
 
-| ID | Name | Bridge | Best For |
-|----|------|--------|----------|
-| `claude-code` | Claude Code | `bridges/claude-code-bridge.sh` | Code implementation, file editing, git operations |
-| `hermes` | Hermes Agent | `bridges/hermes-bridge.sh` | Web research, multi-tool investigation, messaging |
+| ID | Name | Bridge | Speed | Best For |
+|----|------|--------|-------|----------|
+| `claude-code` | Claude Code | `bridges/claude-code-bridge.sh` | ~25-120s | Code implementation, file editing, git operations |
+| `hermes` | Hermes Agent | `bridges/hermes-bridge.sh` | ~15-60s | Web research, security audits, multi-tool investigation |
+| `gemini` | Gemini CLI | `bridges/gemini-bridge.sh` | ~2-12s (daemon) | Large-context analysis (1M+ tokens), multimodal tasks |
+| `codex` | Codex CLI | `bridges/codex-bridge.sh` | ~3s | Fast code generation, shell commands, rapid prototyping |
 
 ## Bridge Protocol
 
@@ -73,12 +80,18 @@ Or let the orchestrator use its default path: `Skills/zo-swarm-executors/registr
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SWARM_WORKSPACE` | `/home/workspace` | Workspace root for path resolution |
-| `SWARM_EXECUTOR_REGISTRY` | `Skills/zo-swarm-executors/registry/executor-registry.json` | Path to executor registry |
-| `CLAUDE_CODE_BIN` | Auto-detected | Path to Claude Code CLI binary |
-| `CLAUDE_CODE_MODEL` | CLI default | Override Claude Code model |
-| `CLAUDE_CODE_TIMEOUT` | `600` | Claude Code bridge timeout (seconds) |
-| `HERMES_PROJECT_DIR` | `/home/workspace/hermes-agent` | Path to Hermes project directory |
-| `HERMES_VENV` | `$HERMES_PROJECT_DIR/.venv/bin/activate` | Path to Hermes venv activate script |
+| Variable | Bridge | Default |
+|----------|--------|---------|
+| `CLAUDE_CODE_BIN` | claude-code | Auto-detected |
+| `CLAUDE_CODE_MODEL` | claude-code | CLI default (Opus 4.6) |
+| `CLAUDE_CODE_TIMEOUT` | claude-code | `600`s |
+| `HERMES_PROJECT_DIR` | hermes | `/home/workspace/hermes-agent` |
+| `HERMES_VENV` | hermes | `$HERMES_PROJECT_DIR/.venv/bin/activate` |
+| `HERMES_TIMEOUT` | hermes | `300`s |
+| `GEMINI_MODEL` | gemini | `gemini-2.5-flash` |
+| `GEMINI_TIMEOUT` | gemini | `300`s |
+| `GEMINI_NO_DAEMON` | gemini | `0` (daemon enabled) |
+| `CODEX_MODEL` | codex | `gpt-5.4` |
+| `CODEX_TIMEOUT` | codex | `300`s |
+| `SWARM_WORKSPACE` | all | `/home/workspace` |
+| `SWARM_EXECUTOR_REGISTRY` | all | `Skills/zo-swarm-executors/registry/executor-registry.json` |

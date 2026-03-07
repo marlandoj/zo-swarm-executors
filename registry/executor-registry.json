@@ -72,6 +72,7 @@
         "envVars": {
           "HERMES_PROJECT_DIR": "Path to hermes-agent project (default: /home/workspace/hermes-agent)",
           "HERMES_VENV": "Path to venv activate script (default: $HERMES_PROJECT_DIR/.venv/bin/activate)",
+          "HERMES_TIMEOUT": "Timeout in seconds (default: 300)",
           "OPENROUTER_API_KEY": "Required — LLM API access for Hermes"
         }
       },
@@ -163,7 +164,7 @@
       ],
       "config": {
         "defaultTimeout": 300,
-        "model": "gpt-5.2-codex",
+        "model": "gpt-5.4",
         "envVars": {
           "CODEX_MODEL": "Override model (e.g., o3, gpt-4.1)",
           "CODEX_TIMEOUT": "Timeout in seconds (default: 300)"
