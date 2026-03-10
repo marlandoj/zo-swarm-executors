@@ -200,12 +200,38 @@ It's good at my-domain tasks.
 
 | Variable | Bridge | Default |
 |----------|--------|---------|
+| `SWARM_RESOLVED_MODEL` | all | OmniRoute combo/model, or CLI default |
 | `CLAUDE_CODE_MODEL` | claude-code | CLI default (Opus 4.6) |
 | `CLAUDE_CODE_TIMEOUT` | claude-code | 600s |
 | `HERMES_PROJECT_DIR` | hermes | `/home/workspace/hermes-agent` |
 | `GEMINI_MODEL` | gemini | `gemini-2.5-flash` |
 | `GEMINI_NO_DAEMON` | gemini | `0` (daemon enabled) |
 | `CODEX_MODEL` | codex | `gpt-5.2-codex` |
+
+---
+
+## Model Routing via OmniRoute
+
+> Powered by [OmniRoute](https://github.com/diegosouzapw/OmniRoute) — a unified AI proxy/router for multi-provider LLM aggregation.
+
+When used with the [zo-swarm-orchestrator](https://github.com/marlandoj/zo-swarm-orchestrator) (v4.7+), each bridge receives a `SWARM_RESOLVED_MODEL` env var that tells it which OmniRoute combo or model to use. The orchestrator picks this based on the task's complexity tier — trivial tasks get cheap models, complex tasks get powerful ones.
+
+### Fallback chain per bridge
+
+Each bridge reads the model in this priority order:
+
+| Bridge | Priority 1 | Priority 2 | Priority 3 |
+|--------|-----------|-----------|-----------|
+| claude-code | `SWARM_RESOLVED_MODEL` | `CLAUDE_CODE_MODEL` | CLI default |
+| codex | `SWARM_RESOLVED_MODEL` | `CODEX_MODEL` | CLI default |
+| hermes | `SWARM_RESOLVED_MODEL` | `LLM_MODEL` | CLI default |
+| gemini | `SWARM_RESOLVED_MODEL` | `GEMINI_MODEL` | `gemini-2.5-flash` |
+
+The Gemini bridge has special handling: if the resolved model is an OmniRoute combo (contains `swarm-`), it skips it and falls back to the native Gemini model, since the Gemini CLI talks directly to Google's API rather than through OmniRoute.
+
+### Standalone usage
+
+When calling bridges directly (without the orchestrator), `SWARM_RESOLVED_MODEL` won't be set and the bridge falls through to the executor-specific env var or CLI default. No behavior change for standalone use.
 
 ---
 
