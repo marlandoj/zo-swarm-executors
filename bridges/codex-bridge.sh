@@ -17,7 +17,12 @@ set -euo pipefail
 
 PROMPT="${1:?Usage: codex-bridge.sh \"prompt\" [workdir]}"
 WORKDIR="${2:-/home/workspace}"
-TIMEOUT="${CODEX_TIMEOUT:-300}"
+TIMEOUT="${CODEX_TIMEOUT:-600}"
+
+# OmniRoute failover — route API calls through OmniRoute proxy
+export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://omniroute-marlandoj.zocomputer.io/v1}"
+export OPENAI_API_KEY="${OMNIROUTE_API_KEY:-02cfc434d560577253444213a884d7cdcf4ab142f21aecea51b3a29fff01784b}"
+CODEX_MODEL="${SWARM_RESOLVED_MODEL:-${CODEX_MODEL:-}}"
 
 CODEX_BIN=""
 if command -v codex &>/dev/null; then

@@ -19,6 +19,13 @@ TIMEOUT="${HERMES_TIMEOUT:-300}"
 PROJECT_DIR="${HERMES_PROJECT_DIR:-/home/workspace/hermes-agent}"
 VENV_ACTIVATE="${HERMES_VENV:-$PROJECT_DIR/.venv/bin/activate}"
 
+# OmniRoute failover — route API calls through OmniRoute proxy
+export OPENAI_BASE_URL="${OPENAI_BASE_URL:-https://omniroute-marlandoj.zocomputer.io/v1}"
+export OPENAI_API_KEY="${OMNIROUTE_API_KEY:-02cfc434d560577253444213a884d7cdcf4ab142f21aecea51b3a29fff01784b}"
+# v4.7: Tiered model routing — orchestrator sets SWARM_RESOLVED_MODEL per task
+# Priority: SWARM_RESOLVED_MODEL > LLM_MODEL > (empty = OmniRoute default)
+export LLM_MODEL="${SWARM_RESOLVED_MODEL:-${LLM_MODEL:-}}"
+
 if [ ! -d "$PROJECT_DIR" ]; then
   echo "ERROR: Hermes project dir not found: $PROJECT_DIR" >&2
   exit 1
@@ -30,7 +37,6 @@ if [ ! -f "$VENV_ACTIVATE" ]; then
 fi
 
 cd "$PROJECT_DIR"
-unset OPENAI_API_KEY
 source "$VENV_ACTIVATE"
 
 STDERR_LOG="/tmp/hermes-bridge-stderr-$$.log"

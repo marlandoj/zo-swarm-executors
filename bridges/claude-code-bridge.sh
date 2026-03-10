@@ -19,6 +19,10 @@ PROMPT="${1:?Usage: claude-code-bridge.sh \"prompt\" [workdir]}"
 WORKDIR="${2:-/home/workspace}"
 TIMEOUT="${CLAUDE_CODE_TIMEOUT:-600}"
 
+# v4.7: Tiered model routing — orchestrator sets SWARM_RESOLVED_MODEL per task
+# Priority: SWARM_RESOLVED_MODEL > CLAUDE_CODE_MODEL > (empty = CLI default)
+CLAUDE_CODE_MODEL="${SWARM_RESOLVED_MODEL:-${CLAUDE_CODE_MODEL:-}}"
+
 # Resolve claude binary — check PATH, then known install locations
 CLAUDE_BIN="${CLAUDE_CODE_BIN:-}"
 if [ -z "$CLAUDE_BIN" ]; then

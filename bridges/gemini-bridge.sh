@@ -18,7 +18,18 @@ PROMPT="${1:?Usage: gemini-bridge.sh \"prompt\" [workdir]}"
 WORKDIR="${2:-/home/workspace}"
 TIMEOUT="${GEMINI_TIMEOUT:-300}"
 DEFAULT_MODEL="gemini-2.5-flash"
-MODEL="${GEMINI_MODEL:-$DEFAULT_MODEL}"
+# v4.7: Tiered model routing — orchestrator sets SWARM_RESOLVED_MODEL per task
+# Only use it if it's a Gemini-native model; combo names (swarm-*) are ignored
+# since the Gemini CLI talks directly to Google's API, not OmniRoute.
+_SWARM_MODEL="${SWARM_RESOLVED_MODEL:-}"
+if [[ "$_SWARM_MODEL" == gemini* ]] || [[ "$_SWARM_MODEL" == gc/* ]]; then
+  # Strip gc/ prefix if present (OmniRoute alias → native model name)
+  MODEL="${_SWARM_MODEL#gc/}"
+elif [ -n "${GEMINI_MODEL:-}" ]; then
+  MODEL="$GEMINI_MODEL"
+else
+  MODEL="$DEFAULT_MODEL"
+fi
 
 DAEMON_SOCKET="/tmp/gemini-daemon.sock"
 
