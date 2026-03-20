@@ -1,6 +1,8 @@
-# Zo Swarm Executors
+# Zouroboros Swarm Executors
 
 > Turn any CLI tool into a first-class AI persona on [Zo Computer](https://zo.computer). Each executor gets consistent identity, shared memory, and full swarm integration through a simple bash bridge script.
+>
+> Part of the [Zouroboros](https://github.com/marlandoj) ecosystem — self-improving AI development tools for Zo Computer.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -8,7 +10,7 @@
 
 ## What This Is
 
-This skill manages the local executors that power the [zo-swarm-orchestrator](https://github.com/marlandoj/zo-swarm-orchestrator). Instead of routing every task through a remote API, the orchestrator can send work to CLI tools running on your machine:
+This skill manages the local executors that power the [zouroboros-swarm-orchestrator](https://github.com/marlandoj/zouroboros-swarm-orchestrator). Instead of routing every task through a remote API, the orchestrator can send work to CLI tools running on your machine:
 
 - **4 Built-in Executors** -- Claude Code, Hermes, Gemini, and Codex, each wrapped in a bridge script
 - **Shared Identity** -- All executors read the same SOUL.md, IDENTITY files, and memory system as API personas
@@ -214,7 +216,7 @@ It's good at my-domain tasks.
 
 > Powered by [OmniRoute](https://github.com/diegosouzapw/OmniRoute) — a unified AI proxy/router for multi-provider LLM aggregation.
 
-When used with the [zo-swarm-orchestrator](https://github.com/marlandoj/zo-swarm-orchestrator) (v4.7+), each bridge receives a `SWARM_RESOLVED_MODEL` env var that tells it which OmniRoute combo or model to use. The orchestrator picks this based on the task's complexity tier — trivial tasks get cheap models, complex tasks get powerful ones.
+When used with the [zouroboros-swarm-orchestrator](https://github.com/marlandoj/zouroboros-swarm-orchestrator) (v4.7+), each bridge receives a `SWARM_RESOLVED_MODEL` env var that tells it which OmniRoute combo or model to use. The orchestrator picks this based on the task's complexity tier — trivial tasks get cheap models, complex tasks get powerful ones.
 
 ### Fallback chain per bridge
 
@@ -238,7 +240,7 @@ When calling bridges directly (without the orchestrator), `SWARM_RESOLVED_MODEL`
 ## Repository Structure
 
 ```
-zo-swarm-executors/
+zouroboros-swarm-executors/
 ├── SKILL.md                         # Skill manifest
 ├── README.md                        # This file
 ├── bridges/                         # Bridge scripts (the core interface)
@@ -276,9 +278,9 @@ The bridge handles binary resolution, timeout enforcement, output cleanup, and e
 
 ## Related Skills
 
-- [zo-swarm-orchestrator](https://github.com/marlandoj/zo-swarm-orchestrator) -- The orchestrator that routes tasks to these executors
-- [zo-memory-system](https://github.com/marlandoj/zo-memory-system) -- Shared memory that all executors can read and write
-- [zo-persona-creator](https://github.com/marlandoj/zo-persona-creator) -- Create personas that can be assigned to executors
+- [zouroboros-swarm-orchestrator](https://github.com/marlandoj/zouroboros-swarm-orchestrator) -- The orchestrator that routes tasks to these executors
+- [zouroboros-memory-system](https://github.com/marlandoj/zouroboros-memory-system) -- Shared memory that all executors can read and write
+- [zouroboros-persona-creator](https://github.com/marlandoj/zouroboros-persona-creator) -- Create personas that can be assigned to executors
 
 ---
 
