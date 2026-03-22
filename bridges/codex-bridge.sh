@@ -64,6 +64,10 @@ case "$RAW_MODEL" in
   swarm-heavy)    CODEX_MODEL="gpt-5.3-codex" ;;
   swarm-failover) CODEX_MODEL="gpt-4o" ;;
   swarm-*)        CODEX_MODEL="gpt-4o" ;;  # Unknown swarm tier → default to gpt-4o
+  light)          CODEX_MODEL="gpt-4o-mini" ;;
+  mid)            CODEX_MODEL="gpt-4o" ;;
+  heavy)          CODEX_MODEL="gpt-5.3-codex" ;;
+  failover)       CODEX_MODEL="gpt-4o" ;;
   *)              CODEX_MODEL="$RAW_MODEL" ;;  # Pass through other model names
 esac
 
