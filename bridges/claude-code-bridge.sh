@@ -49,6 +49,10 @@ case "$RAW_MODEL" in
   swarm-heavy)    CLAUDE_CODE_MODEL="opus" ;;
   swarm-failover) CLAUDE_CODE_MODEL="sonnet" ;;
   swarm-*)        CLAUDE_CODE_MODEL="sonnet" ;;
+  light)          CLAUDE_CODE_MODEL="haiku" ;;
+  mid)            CLAUDE_CODE_MODEL="sonnet" ;;
+  heavy)          CLAUDE_CODE_MODEL="opus" ;;
+  failover)       CLAUDE_CODE_MODEL="sonnet" ;;
   "")             CLAUDE_CODE_MODEL="" ;;
   *)              CLAUDE_CODE_MODEL="$RAW_MODEL" ;;
 esac

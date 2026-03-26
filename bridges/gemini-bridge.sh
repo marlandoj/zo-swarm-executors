@@ -66,6 +66,10 @@ case "$_SWARM_MODEL" in
   swarm-heavy)    MODEL="gemini-3-pro-preview" ;;
   swarm-failover) MODEL="gemini-2.5-flash" ;;
   swarm-*)        MODEL="gemini-2.5-flash" ;;
+  light)          MODEL="gemini-2.5-flash" ;;
+  mid)            MODEL="gemini-3-pro-preview" ;;
+  heavy)          MODEL="gemini-3-pro-preview" ;;
+  failover)       MODEL="gemini-2.5-flash" ;;
   gemini*|gc/*|models/*) MODEL="${_SWARM_MODEL#gc/}" ;;
   "")
     case "$_GEMINI_MODEL" in
