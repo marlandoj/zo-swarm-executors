@@ -89,6 +89,9 @@ fi
 
 cd "$WORKDIR"
 
+# --- Spec 2: Capture start time for duration metrics ---
+START_TIME=$(date +%s%N)
+
 # --- T1: Process isolation to bypass nested-session detection ---
 # Scrub ALL known session-detection env vars
 unset CLAUDECODE
@@ -179,10 +182,12 @@ if command -v setsid &>/dev/null; then
   ISOLATION_CMD="setsid --wait"
 fi
 
+OUTPUT_FILE="/tmp/claude-code-bridge-output-$$.txt"
+
 if [ -n "$ISOLATION_CMD" ]; then
-  $ISOLATION_CMD timeout "$TIMEOUT" "$CLAUDE_BIN" -p "$PROMPT" --output-format text --allowedTools $ALLOWED_TOOLS $EXTRA_ARGS 2>"$STDERR_LOG"
+  $ISOLATION_CMD timeout "$TIMEOUT" "$CLAUDE_BIN" -p "$PROMPT" --output-format text --allowedTools $ALLOWED_TOOLS $EXTRA_ARGS 2>"$STDERR_LOG" > "$OUTPUT_FILE"
 else
-  timeout "$TIMEOUT" "$CLAUDE_BIN" -p "$PROMPT" --output-format text --allowedTools $ALLOWED_TOOLS $EXTRA_ARGS 2>"$STDERR_LOG"
+  timeout "$TIMEOUT" "$CLAUDE_BIN" -p "$PROMPT" --output-format text --allowedTools $ALLOWED_TOOLS $EXTRA_ARGS 2>"$STDERR_LOG" > "$OUTPUT_FILE"
 fi
 EXIT_CODE=$?
 
@@ -191,13 +196,67 @@ if [ $EXIT_CODE -eq 1 ] && [ -n "$ISOLATION_CMD" ] && command -v unshare &>/dev/
   NESTED_ERR=$(head -5 "$STDERR_LOG" 2>/dev/null || true)
   if echo "$NESTED_ERR" | grep -qi "nested\|session\|already running\|CLAUDECODE"; then
     echo "BRIDGE_WARN: setsid insufficient, escalating to unshare --pid --fork" >&2
-    unshare --pid --fork timeout "$TIMEOUT" "$CLAUDE_BIN" -p "$PROMPT" --output-format text --allowedTools $ALLOWED_TOOLS $EXTRA_ARGS 2>"$STDERR_LOG"
+    unshare --pid --fork timeout "$TIMEOUT" "$CLAUDE_BIN" -p "$PROMPT" --output-format text --allowedTools $ALLOWED_TOOLS $EXTRA_ARGS 2>"$STDERR_LOG" > "$OUTPUT_FILE"
     EXIT_CODE=$?
   fi
 fi
 
+# Emit output to stdout for backward compatibility
+cat "$OUTPUT_FILE" 2>/dev/null
+
 if [ $EXIT_CODE -ne 0 ]; then
   echo "BRIDGE_ERROR: exit=$EXIT_CODE tier=${TIER:-unknown} timeout=${TIMEOUT}s model=${CLAUDE_CODE_MODEL:-default} stderr=$(head -5 "$STDERR_LOG" 2>/dev/null)" >&2
 fi
-rm -f "$STDERR_LOG"
+
+# --- Structured Result Output (Spec 2) ---
+RESULT_FILE="${RESULT_PATH:-result.json}"
+RESULT_TMP="${RESULT_FILE}.tmp"
+TASK_ID="${SWARM_TASK_ID:-unknown}"
+EXECUTOR_ID="claude-code"
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+RESOLVED_MODEL="${CLAUDE_CODE_MODEL:-default}"
+
+if [ -n "$START_TIME" ]; then
+  END_TIME=$(date +%s%N)
+  DURATION_MS=$(( (END_TIME - START_TIME) / 1000000 ))
+else
+  DURATION_MS=0
+fi
+
+STDERR_OUTPUT=$(head -c 2000 "$STDERR_LOG" 2>/dev/null || true)
+
+if [ $EXIT_CODE -eq 0 ]; then
+  cat > "$RESULT_TMP" <<RESULT_EOF
+{
+  "status": "success",
+  "output": $(cat "$OUTPUT_FILE" 2>/dev/null | head -c 102400 | jq -Rs .),
+  "metrics": {
+    "durationMs": $DURATION_MS,
+    "model": $(echo "$RESOLVED_MODEL" | jq -Rs .)
+  },
+  "executorId": "$EXECUTOR_ID",
+  "taskId": "$TASK_ID",
+  "timestamp": "$TIMESTAMP"
+}
+RESULT_EOF
+  mv "$RESULT_TMP" "$RESULT_FILE"
+else
+  cat > "$RESULT_TMP" <<RESULT_EOF
+{
+  "status": "failure",
+  "output": "",
+  "error": {
+    "category": "unknown",
+    "message": $(echo "$STDERR_OUTPUT" | jq -Rs .),
+    "retryable": true
+  },
+  "executorId": "$EXECUTOR_ID",
+  "taskId": "$TASK_ID",
+  "timestamp": "$TIMESTAMP"
+}
+RESULT_EOF
+  mv "$RESULT_TMP" "$RESULT_FILE"
+fi
+
+rm -f "$STDERR_LOG" "$OUTPUT_FILE"
 exit $EXIT_CODE
