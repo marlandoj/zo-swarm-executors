@@ -60,6 +60,36 @@ export interface ExecutorRegistry {
   executors: ExecutorEntry[];
 }
 
+export type ErrorCategory =
+  | "timeout" | "mutation_failed" | "syntax_error" | "runtime_error"
+  | "permission_denied" | "rate_limited" | "context_overflow" | "unknown";
+
+export interface ExecutorResult {
+  status: "success" | "failure" | "timeout" | "crash";
+  output: string;
+  metrics?: {
+    durationMs?: number;
+    promptTokens?: number;
+    outputTokens?: number;
+    model?: string;
+    retries?: number;
+  };
+  artifacts?: {
+    filesCreated?: string[];
+    filesModified?: string[];
+    filesDeleted?: string[];
+  };
+  error?: {
+    category: ErrorCategory;
+    message: string;
+    stackTrace?: string;
+    retryable: boolean;
+  };
+  executorId: string;
+  taskId: string;
+  timestamp: string;
+}
+
 /** An executor entry with resolved absolute paths (runtime). */
 export interface ResolvedExecutor {
   /** Unique identifier. */

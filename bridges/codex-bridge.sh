@@ -80,6 +80,9 @@ fi
 
 cd "$WORKDIR"
 
+# --- Spec 2: Capture start time for duration metrics ---
+START_TIME=$(date +%s%N)
+
 # Log stderr for debugging; stdout is the response
 STDERR_LOG="/tmp/codex-bridge-stderr-$$.log"
 OUT_FILE="/tmp/codex-bridge-out-$$.log"
@@ -101,6 +104,56 @@ if [ $EXIT_CODE -eq 0 ]; then
   fi
 else
   echo "BRIDGE_ERROR: exit=$EXIT_CODE tier=${TIER:-unknown} timeout=${TIMEOUT}s model=${CODEX_MODEL:-default} stderr=$(head -5 "$STDERR_LOG" 2>/dev/null)" >&2
+fi
+
+# --- Structured Result Output (Spec 2) ---
+RESULT_FILE="${RESULT_PATH:-result.json}"
+RESULT_TMP="${RESULT_FILE}.tmp"
+TASK_ID="${SWARM_TASK_ID:-unknown}"
+EXECUTOR_ID="codex"
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+RESOLVED_MODEL="${CODEX_MODEL:-default}"
+
+if [ -n "$START_TIME" ]; then
+  END_TIME=$(date +%s%N)
+  DURATION_MS=$(( (END_TIME - START_TIME) / 1000000 ))
+else
+  DURATION_MS=0
+fi
+
+STDERR_OUTPUT=$(head -c 2000 "$STDERR_LOG" 2>/dev/null || true)
+
+if [ $EXIT_CODE -eq 0 ]; then
+  cat > "$RESULT_TMP" <<RESULT_EOF
+{
+  "status": "success",
+  "output": $(cat "$OUT_FILE" 2>/dev/null | head -c 102400 | jq -Rs .),
+  "metrics": {
+    "durationMs": $DURATION_MS,
+    "model": $(echo "$RESOLVED_MODEL" | jq -Rs .)
+  },
+  "executorId": "$EXECUTOR_ID",
+  "taskId": "$TASK_ID",
+  "timestamp": "$TIMESTAMP"
+}
+RESULT_EOF
+  mv "$RESULT_TMP" "$RESULT_FILE"
+else
+  cat > "$RESULT_TMP" <<RESULT_EOF
+{
+  "status": "failure",
+  "output": "",
+  "error": {
+    "category": "unknown",
+    "message": $(echo "$STDERR_OUTPUT" | jq -Rs .),
+    "retryable": true
+  },
+  "executorId": "$EXECUTOR_ID",
+  "taskId": "$TASK_ID",
+  "timestamp": "$TIMESTAMP"
+}
+RESULT_EOF
+  mv "$RESULT_TMP" "$RESULT_FILE"
 fi
 
 rm -f "$STDERR_LOG" "$OUT_FILE"

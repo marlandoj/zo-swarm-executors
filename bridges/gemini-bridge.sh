@@ -88,6 +88,63 @@ case "$_SWARM_MODEL" in
     ;;
 esac
 
+# --- Spec 2: Capture start time for duration metrics ---
+START_TIME=$(date +%s%N)
+
+# --- Spec 2: Helper to write result.json ---
+_write_result() {
+  local _STATUS="$1"
+  local _OUTPUT="$2"
+  local _ERROR_MSG="${3:-}"
+  local _RESULT_FILE="${RESULT_PATH:-result.json}"
+  local _RESULT_TMP="${_RESULT_FILE}.tmp"
+  local _TASK_ID="${SWARM_TASK_ID:-unknown}"
+  local _TIMESTAMP
+  _TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local _DURATION_MS=0
+  if [ -n "${START_TIME:-}" ]; then
+    local _END_TIME
+    _END_TIME=$(date +%s%N)
+    _DURATION_MS=$(( (_END_TIME - START_TIME) / 1000000 ))
+  fi
+
+  if [ "$_STATUS" = "success" ]; then
+    cat > "$_RESULT_TMP" <<RESULT_EOF
+{
+  "status": "success",
+  "output": $(echo "$_OUTPUT" | head -c 102400 | jq -Rs .),
+  "metrics": {
+    "durationMs": $_DURATION_MS,
+    "model": $(echo "$MODEL" | jq -Rs .)
+  },
+  "executorId": "gemini",
+  "taskId": "$_TASK_ID",
+  "timestamp": "$_TIMESTAMP"
+}
+RESULT_EOF
+  else
+    cat > "$_RESULT_TMP" <<RESULT_EOF
+{
+  "status": "failure",
+  "output": "",
+  "error": {
+    "category": "unknown",
+    "message": $(echo "$_ERROR_MSG" | head -c 2000 | jq -Rs .),
+    "retryable": true
+  },
+  "metrics": {
+    "durationMs": $_DURATION_MS,
+    "model": $(echo "$MODEL" | jq -Rs .)
+  },
+  "executorId": "gemini",
+  "taskId": "$_TASK_ID",
+  "timestamp": "$_TIMESTAMP"
+}
+RESULT_EOF
+  fi
+  mv "$_RESULT_TMP" "$_RESULT_FILE"
+}
+
 DAEMON_SOCKET="/tmp/gemini-daemon.sock"
 
 # --- Daemon path: ~1-2s per call instead of ~12s ---
@@ -102,7 +159,9 @@ if [ "${GEMINI_NO_DAEMON:-}" != "1" ] && [ -S "$DAEMON_SOCKET" ]; then
   if [ -n "$RESPONSE" ]; then
     ERROR=$(echo "$RESPONSE" | jq -r '.error // empty' 2>/dev/null)
     if [ -z "$ERROR" ]; then
-      echo "$RESPONSE" | jq -r '.output // empty' 2>/dev/null
+      DAEMON_OUTPUT=$(echo "$RESPONSE" | jq -r '.output // empty' 2>/dev/null)
+      echo "$DAEMON_OUTPUT"
+      _write_result "success" "$DAEMON_OUTPUT"
       exit 0
     fi
     echo "BRIDGE_WARN: daemon returned error: $ERROR, falling back to direct CLI" >&2
@@ -127,8 +186,9 @@ fi
 cd "$WORKDIR"
 STDERR_LOG="/tmp/gemini-bridge-stderr-$$.log"
 
+CLI_OUTPUT_FILE="/tmp/gemini-bridge-output-$$.txt"
 EXIT_CODE=0
-timeout "$TIMEOUT" "$GEMINI_BIN" -p "$PROMPT" --yolo --output-format text -m "$MODEL" --sandbox=false 2>"$STDERR_LOG" || EXIT_CODE=$?
+timeout "$TIMEOUT" "$GEMINI_BIN" -p "$PROMPT" --yolo --output-format text -m "$MODEL" --sandbox=false 2>"$STDERR_LOG" > "$CLI_OUTPUT_FILE" || EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then
   echo "BRIDGE_WARN: direct CLI failed (exit=$EXIT_CODE), trying OmniRoute fallback..." >&2
@@ -153,6 +213,8 @@ if [ $EXIT_CODE -ne 0 ]; then
       OR_CONTENT=$(echo "$OR_RESPONSE" | jq -r '.choices[0].message.content // empty' 2>/dev/null)
       if [ -n "$OR_CONTENT" ]; then
         echo "$OR_CONTENT"
+        _write_result "success" "$OR_CONTENT"
+        rm -f "$CLI_OUTPUT_FILE"
         exit 0
       fi
     fi
@@ -160,7 +222,13 @@ if [ $EXIT_CODE -ne 0 ]; then
   fi
 
   echo "BRIDGE_ERROR: all paths failed (direct CLI exit=$EXIT_CODE, OmniRoute fallback failed)" >&2
+  _write_result "failure" "" "all paths failed (direct CLI exit=$EXIT_CODE, OmniRoute fallback failed)"
+  rm -f "$CLI_OUTPUT_FILE"
   exit $EXIT_CODE
 fi
-rm -f "$STDERR_LOG"
+
+# Direct CLI succeeded
+cat "$CLI_OUTPUT_FILE"
+_write_result "success" "$(cat "$CLI_OUTPUT_FILE" 2>/dev/null)"
+rm -f "$STDERR_LOG" "$CLI_OUTPUT_FILE"
 exit 0

@@ -70,6 +70,9 @@ fi
 cd "$PROJECT_DIR"
 source "$VENV_ACTIVATE"
 
+# --- Spec 2: Capture start time for duration metrics ---
+START_TIME=$(date +%s%N)
+
 STDERR_LOG="/tmp/hermes-bridge-stderr-$$.log"
 OUTPUT_FILE="/tmp/hermes-bridge-output-$$.txt"
 
@@ -81,8 +84,45 @@ timeout "$TIMEOUT" python cli.py -q "$PROMPT" 2>"$STDERR_LOG" \
   | sed '/^$/d' > "$OUTPUT_FILE"
 EXIT_CODE=${PIPESTATUS[0]}
 
+# Helper: write failure result.json
+_write_failure_result() {
+  local _EXIT=$1
+  local _STDERR_MSG="$2"
+  local _RESULT_FILE="${RESULT_PATH:-result.json}"
+  local _RESULT_TMP="${_RESULT_FILE}.tmp"
+  local _TASK_ID="${SWARM_TASK_ID:-unknown}"
+  local _TIMESTAMP
+  _TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local _DURATION_MS=0
+  if [ -n "${START_TIME:-}" ]; then
+    local _END_TIME
+    _END_TIME=$(date +%s%N)
+    _DURATION_MS=$(( (_END_TIME - START_TIME) / 1000000 ))
+  fi
+  cat > "$_RESULT_TMP" <<RESULT_EOF
+{
+  "status": "failure",
+  "output": "",
+  "error": {
+    "category": "unknown",
+    "message": $(echo "$_STDERR_MSG" | head -c 2000 | jq -Rs .),
+    "retryable": true
+  },
+  "metrics": {
+    "durationMs": $_DURATION_MS,
+    "model": $(echo "${LLM_MODEL:-default}" | jq -Rs .)
+  },
+  "executorId": "hermes",
+  "taskId": "$_TASK_ID",
+  "timestamp": "$_TIMESTAMP"
+}
+RESULT_EOF
+  mv "$_RESULT_TMP" "$_RESULT_FILE"
+}
+
 if [ $EXIT_CODE -ne 0 ]; then
   echo "BRIDGE_ERROR: exit=$EXIT_CODE tier=${TIER:-unknown} timeout=${TIMEOUT}s model=${LLM_MODEL:-default} stderr=$(head -5 "$STDERR_LOG" 2>/dev/null)" >&2
+  _write_failure_result "$EXIT_CODE" "$(head -5 "$STDERR_LOG" 2>/dev/null)"
   rm -f "$STDERR_LOG" "$OUTPUT_FILE"
   exit $EXIT_CODE
 fi
@@ -94,11 +134,45 @@ if [ ! -s "$OUTPUT_FILE" ]; then
   EXIT_CODE=$?
   if [ $EXIT_CODE -ne 0 ]; then
     echo "BRIDGE_ERROR: raw retry failed, exit=$EXIT_CODE tier=${TIER:-unknown} timeout=${TIMEOUT}s model=${LLM_MODEL:-default}" >&2
+    _write_failure_result "$EXIT_CODE" "raw retry failed, exit=$EXIT_CODE"
     rm -f "$STDERR_LOG" "$OUTPUT_FILE"
     exit $EXIT_CODE
   fi
 fi
 
 cat "$OUTPUT_FILE"
+
+# --- Structured Result Output (Spec 2) ---
+RESULT_FILE="${RESULT_PATH:-result.json}"
+RESULT_TMP="${RESULT_FILE}.tmp"
+TASK_ID="${SWARM_TASK_ID:-unknown}"
+EXECUTOR_ID="hermes"
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+RESOLVED_MODEL="${LLM_MODEL:-default}"
+
+if [ -n "$START_TIME" ]; then
+  END_TIME=$(date +%s%N)
+  DURATION_MS=$(( (END_TIME - START_TIME) / 1000000 ))
+else
+  DURATION_MS=0
+fi
+
+STDERR_OUTPUT=$(head -c 2000 "$STDERR_LOG" 2>/dev/null || true)
+
+cat > "$RESULT_TMP" <<RESULT_EOF
+{
+  "status": "success",
+  "output": $(cat "$OUTPUT_FILE" 2>/dev/null | head -c 102400 | jq -Rs .),
+  "metrics": {
+    "durationMs": $DURATION_MS,
+    "model": $(echo "$RESOLVED_MODEL" | jq -Rs .)
+  },
+  "executorId": "$EXECUTOR_ID",
+  "taskId": "$TASK_ID",
+  "timestamp": "$TIMESTAMP"
+}
+RESULT_EOF
+mv "$RESULT_TMP" "$RESULT_FILE"
+
 rm -f "$STDERR_LOG" "$OUTPUT_FILE"
 exit 0
